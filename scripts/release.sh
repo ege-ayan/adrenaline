@@ -7,13 +7,25 @@ cd "$root"
 # Use project-local target/ (ignore Cursor/sandbox CARGO_TARGET_DIR).
 export CARGO_TARGET_DIR="${root}/target"
 
+asset_slug() {
+  case "$1" in
+    x86_64-unknown-linux-gnu) echo "linux-x86_64" ;;
+    aarch64-unknown-linux-gnu) echo "linux-aarch64" ;;
+    aarch64-apple-darwin) echo "macos-aarch64" ;;
+    x86_64-apple-darwin) echo "macos-x86_64" ;;
+    x86_64-pc-windows-msvc) echo "windows-x86_64" ;;
+    *) echo "$1" ;;
+  esac
+}
+
 host="$(rustc -vV | sed -n 's/host: //p')"
 target="${1:-$host}"
+slug="$(asset_slug "${target}")"
 version="$(awk -F'"' '/^version/ {print $2; exit}' Cargo.toml)"
-stem="adrenaline-${version}-${target}"
+stem="adrenaline-${version}-${slug}"
 bin_name="adrenaline"
 
-echo "Building ${bin_name} ${version} for ${target}..."
+echo "Building ${bin_name} ${version} for ${slug} (${target})..."
 
 if command -v rustup >/dev/null; then
   if ! rustup target list --installed | grep -q "^${target}\$"; then

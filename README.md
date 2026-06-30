@@ -44,16 +44,16 @@ Download the archive for your platform from [GitHub Releases](https://github.com
 
 | Platform | Asset |
 |----------|-------|
-| Linux x86_64 | `adrenaline-*-x86_64-unknown-linux-gnu.tar.gz` |
-| Linux ARM64 | `adrenaline-*-aarch64-unknown-linux-gnu.tar.gz` |
-| macOS Apple Silicon | `adrenaline-*-aarch64-apple-darwin.tar.gz` |
-| macOS Intel | `adrenaline-*-x86_64-apple-darwin.tar.gz` |
-| Windows x86_64 | `adrenaline-*-x86_64-pc-windows-msvc.zip` |
+| Linux x86_64 | `adrenaline-*-linux-x86_64.tar.gz` |
+| Linux ARM64 | `adrenaline-*-linux-aarch64.tar.gz` |
+| macOS Apple Silicon | `adrenaline-*-macos-aarch64.tar.gz` |
+| macOS Intel | `adrenaline-*-macos-x86_64.tar.gz` |
+| Windows x86_64 | `adrenaline-*-windows-x86_64.zip` |
 
 ```bash
 # macOS / Linux example
-tar -xzf adrenaline-0.1.1-aarch64-apple-darwin.tar.gz
-sudo mv adrenaline-0.1.1-aarch64-apple-darwin/adrenaline /usr/local/bin/
+tar -xzf adrenaline-0.1.1-macos-aarch64.tar.gz
+sudo mv adrenaline-0.1.1-macos-aarch64/adrenaline /usr/local/bin/
 adrenaline --version
 ```
 
