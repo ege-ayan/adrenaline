@@ -237,8 +237,8 @@ src/
 ├── lib.rs           # Library + command dispatch
 ├── cli.rs           # clap structs and validation
 ├── request.rs       # HTTP method, headers, send_request
-├── runner.rs        # Semaphore-based load execution
-├── stats.rs         # Histogram, aggregation, snapshots
+├── runner.rs        # Fixed worker pool load execution
+├── stats.rs         # Worker-local stats, histogram merge, snapshots
 ├── output.rs        # Text, JSON, HTML formatting
 ├── baseline.rs      # Baseline comparison logic
 ├── report.rs        # Output orchestration (baseline, HTML)
@@ -256,7 +256,8 @@ examples/
 └── scenario.yaml
 
 .github/workflows/
-└── ci.yml           # fmt, clippy, test, smoke load test
+├── ci.yml           # fmt, clippy, test, smoke load test
+└── release.yml      # multi-platform release binaries
 ```
 
 ## Development
