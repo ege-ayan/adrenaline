@@ -301,7 +301,14 @@ mod tests {
             })
             .await;
         let report_a = stats_a
-            .finalize("hit", "https://a.com", "GET", Duration::from_secs(1), 1, BTreeMap::new())
+            .finalize(
+                "hit",
+                "https://a.com",
+                "GET",
+                Duration::from_secs(1),
+                1,
+                BTreeMap::new(),
+            )
             .unwrap();
 
         let stats_b = Stats::new().unwrap();
@@ -313,7 +320,14 @@ mod tests {
             })
             .await;
         let report_b = stats_b
-            .finalize("hit", "https://a.com", "GET", Duration::from_secs(1), 1, BTreeMap::new())
+            .finalize(
+                "hit",
+                "https://a.com",
+                "GET",
+                Duration::from_secs(1),
+                1,
+                BTreeMap::new(),
+            )
             .unwrap();
 
         let merged = report_a.merge(report_b).unwrap();

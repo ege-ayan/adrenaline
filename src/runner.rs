@@ -106,10 +106,12 @@ mod tests {
 
     #[test]
     fn validate_phase_rejects_zero_requests() {
-        assert!(validate_phase(&LoadPhase {
-            requests: 0,
-            concurrency: 1,
-        })
-        .is_err());
+        assert!(
+            validate_phase(&LoadPhase {
+                requests: 0,
+                concurrency: 1,
+            })
+            .is_err()
+        );
     }
 }

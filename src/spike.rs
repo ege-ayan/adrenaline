@@ -38,7 +38,10 @@ pub async fn run(args: SpikeArgs) -> Result<ExitCode> {
                 "baseline concurrency".to_string(),
                 args.baseline_concurrency.to_string(),
             ),
-            ("spike requests".to_string(), args.spike_requests.to_string()),
+            (
+                "spike requests".to_string(),
+                args.spike_requests.to_string(),
+            ),
             (
                 "spike concurrency".to_string(),
                 args.spike_concurrency.to_string(),
@@ -48,13 +51,8 @@ pub async fn run(args: SpikeArgs) -> Result<ExitCode> {
         .collect(),
     )?;
 
-    let (spike_stats, spike_duration) = execute_load(
-        &client,
-        &spec,
-        args.spike_requests,
-        args.spike_concurrency,
-    )
-    .await?;
+    let (spike_stats, spike_duration) =
+        execute_load(&client, &spec, args.spike_requests, args.spike_concurrency).await?;
 
     let spike_report = spike_stats.finalize(
         "spike",
@@ -70,7 +68,9 @@ pub async fn run(args: SpikeArgs) -> Result<ExitCode> {
     merged.command = "spike".to_string();
     merged.total_duration = total_duration;
     merged.completed = args.baseline_requests + args.spike_requests;
-    merged.metadata.insert("phase".to_string(), "combined".to_string());
+    merged
+        .metadata
+        .insert("phase".to_string(), "combined".to_string());
     merged.metadata.insert(
         "baseline requests".to_string(),
         args.baseline_requests.to_string(),
@@ -79,7 +79,10 @@ pub async fn run(args: SpikeArgs) -> Result<ExitCode> {
         "baseline concurrency".to_string(),
         args.baseline_concurrency.to_string(),
     );
-    merged.metadata.insert("spike requests".to_string(), args.spike_requests.to_string());
+    merged.metadata.insert(
+        "spike requests".to_string(),
+        args.spike_requests.to_string(),
+    );
     merged.metadata.insert(
         "spike concurrency".to_string(),
         args.spike_concurrency.to_string(),

@@ -202,14 +202,16 @@ pub fn write_html_report(report: &TestReport, path: &Path) -> Result<()> {
 }
 
 pub fn write_baseline(report: &TestReport, path: &Path) -> Result<()> {
-    let json = serde_json::to_string_pretty(&report.snapshot()).context("failed to serialize baseline")?;
+    let json =
+        serde_json::to_string_pretty(&report.snapshot()).context("failed to serialize baseline")?;
     fs::write(path, json).with_context(|| format!("failed to write baseline: {}", path.display()))
 }
 
 pub fn load_baseline(path: &Path) -> Result<ReportSnapshot> {
     let content = fs::read_to_string(path)
         .with_context(|| format!("failed to read baseline: {}", path.display()))?;
-    serde_json::from_str(&content).with_context(|| format!("invalid baseline JSON: {}", path.display()))
+    serde_json::from_str(&content)
+        .with_context(|| format!("invalid baseline JSON: {}", path.display()))
 }
 
 pub fn print_comparison(lines: &[String]) {

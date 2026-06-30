@@ -163,7 +163,12 @@ pub async fn run(args: ScenarioArgs) -> Result<ExitCode> {
     println!("Running scenario: {}\n", scenario.name);
 
     for (index, step) in scenario.steps.iter().enumerate() {
-        println!("Step {}/{}: {}", index + 1, scenario.steps.len(), step_type(step));
+        println!(
+            "Step {}/{}: {}",
+            index + 1,
+            scenario.steps.len(),
+            step_type(step)
+        );
 
         let output = OutputArgs {
             json: args.output.json,

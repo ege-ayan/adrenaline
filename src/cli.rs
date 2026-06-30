@@ -32,7 +32,11 @@ pub struct OutputArgs {
     #[arg(long, value_name = "FILE", help = "Write HTML report to FILE")]
     pub html: Option<PathBuf>,
 
-    #[arg(long, value_name = "FILE", help = "Compare results against a saved baseline")]
+    #[arg(
+        long,
+        value_name = "FILE",
+        help = "Compare results against a saved baseline"
+    )]
     pub baseline: Option<PathBuf>,
 
     #[arg(long, value_name = "FILE", help = "Save results as baseline JSON")]
@@ -142,10 +146,18 @@ pub struct CompareArgs {
     pub baseline: PathBuf,
     pub current: PathBuf,
 
-    #[arg(long, default_value_t = 10.0, help = "Allowed p99 latency regression in percent")]
+    #[arg(
+        long,
+        default_value_t = 10.0,
+        help = "Allowed p99 latency regression in percent"
+    )]
     pub p99_threshold: f64,
 
-    #[arg(long, default_value_t = 1.0, help = "Allowed error rate regression in percent points")]
+    #[arg(
+        long,
+        default_value_t = 1.0,
+        help = "Allowed error rate regression in percent points"
+    )]
     pub error_rate_threshold: f64,
 }
 

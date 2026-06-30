@@ -96,8 +96,21 @@ fn compare_points(
         return;
     }
 
-    let improvement = if higher_is_bad { delta < 0.0 } else { delta > 0.0 };
-    push_delta_line(lines, label, baseline, current, delta, improvement, unit, "pts");
+    let improvement = if higher_is_bad {
+        delta < 0.0
+    } else {
+        delta > 0.0
+    };
+    push_delta_line(
+        lines,
+        label,
+        baseline,
+        current,
+        delta,
+        improvement,
+        unit,
+        "pts",
+    );
 }
 
 fn compare_percent(
@@ -219,7 +232,11 @@ mod tests {
                 error_rate_threshold_pts: 1.0,
             },
         );
-        assert!(lines.iter().any(|l| l.message.contains("REGRESSION: p99 latency")));
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.message.contains("REGRESSION: p99 latency"))
+        );
     }
 
     #[test]
@@ -234,7 +251,11 @@ mod tests {
                 error_rate_threshold_pts: 1.0,
             },
         );
-        assert!(lines.iter().any(|l| l.message.contains("REGRESSION: error rate")));
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.message.contains("REGRESSION: error rate"))
+        );
     }
 
     #[test]
@@ -249,8 +270,10 @@ mod tests {
                 error_rate_threshold_pts: 1.0,
             },
         );
-        assert!(lines
-            .iter()
-            .any(|l| l.message.contains("IMPROVEMENT: requests/sec")));
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.message.contains("IMPROVEMENT: requests/sec"))
+        );
     }
 }

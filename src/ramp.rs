@@ -51,7 +51,13 @@ pub async fn run(args: RampArgs) -> Result<ExitCode> {
         reports.push(report);
     }
 
-    let merged = merge_reports(reports, total_duration, &args, &spec.url, spec.method.as_str())?;
+    let merged = merge_reports(
+        reports,
+        total_duration,
+        &args,
+        &spec.url,
+        spec.method.as_str(),
+    )?;
     finish_report(&merged, &args.output)
 }
 

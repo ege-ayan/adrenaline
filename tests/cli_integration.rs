@@ -35,7 +35,9 @@ fn cli_hit_rejects_zero_concurrency() {
         .args(["hit", "https://example.com", "-n", "10", "-c", "0"])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("concurrency must be greater than 0"));
+        .stderr(predicate::str::contains(
+            "concurrency must be greater than 0",
+        ));
 }
 
 #[test]

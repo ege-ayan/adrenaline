@@ -40,11 +40,13 @@ pub struct RequestSpec {
 
 impl RequestSpec {
     pub fn validate(&self) -> Result<()> {
-        reqwest::Url::parse(&self.url)
-            .with_context(|| format!("invalid URL: {}", self.url))?;
+        reqwest::Url::parse(&self.url).with_context(|| format!("invalid URL: {}", self.url))?;
 
         if matches!(self.method, HttpMethod::Get | HttpMethod::Delete) && self.body.is_some() {
-            bail!("body is not supported for {} requests", self.method.as_str());
+            bail!(
+                "body is not supported for {} requests",
+                self.method.as_str()
+            );
         }
 
         Ok(())

@@ -23,13 +23,8 @@ pub async fn run(args: FindLimitArgs) -> Result<ExitCode> {
 
     let mut concurrency = args.start_concurrency;
     while concurrency <= args.max_concurrency {
-        let (stats, duration) = execute_load(
-            &client,
-            &spec,
-            args.requests_per_step,
-            concurrency,
-        )
-        .await?;
+        let (stats, duration) =
+            execute_load(&client, &spec, args.requests_per_step, concurrency).await?;
 
         let report = stats.finalize(
             "find-limit",
@@ -37,10 +32,7 @@ pub async fn run(args: FindLimitArgs) -> Result<ExitCode> {
             spec.method.as_str(),
             duration,
             args.requests_per_step,
-            BTreeMap::from([(
-                "concurrency tested".to_string(),
-                concurrency.to_string(),
-            )]),
+            BTreeMap::from([("concurrency tested".to_string(), concurrency.to_string())]),
         )?;
 
         total_duration += duration;
@@ -66,7 +58,9 @@ pub async fn run(args: FindLimitArgs) -> Result<ExitCode> {
 
     final_report.command = "find-limit".to_string();
     final_report.total_duration = total_duration;
-    final_report.metadata.insert("limit found".to_string(), last_good.to_string());
+    final_report
+        .metadata
+        .insert("limit found".to_string(), last_good.to_string());
     final_report.metadata.insert(
         "requests per step".to_string(),
         args.requests_per_step.to_string(),
@@ -75,7 +69,10 @@ pub async fn run(args: FindLimitArgs) -> Result<ExitCode> {
         "max error rate".to_string(),
         format!("{}%", args.max_error_rate),
     );
-    final_report.metadata.insert("max concurrency".to_string(), args.max_concurrency.to_string());
+    final_report.metadata.insert(
+        "max concurrency".to_string(),
+        args.max_concurrency.to_string(),
+    );
 
     finish_report(&final_report, &args.output)
 }
