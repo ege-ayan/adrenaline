@@ -1,4 +1,4 @@
-.PHONY: test fmt clippy build
+.PHONY: test fmt clippy build release
 
 test:
 	@./scripts/test.sh
@@ -11,3 +11,7 @@ clippy:
 
 build:
 	cargo build --release
+
+release:
+	@chmod +x scripts/release.sh
+	@./scripts/release.sh

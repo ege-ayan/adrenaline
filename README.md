@@ -38,6 +38,29 @@ source "$HOME/.cargo/env"
 
 ## Installation
 
+### Pre-built binary (GitHub Releases)
+
+Download the archive for your platform from [GitHub Releases](https://github.com/ege-ayan/adrenaline/releases):
+
+| Platform | Asset |
+|----------|-------|
+| Linux x86_64 | `adrenaline-*-x86_64-unknown-linux-gnu.tar.gz` |
+| Linux ARM64 | `adrenaline-*-aarch64-unknown-linux-gnu.tar.gz` |
+| macOS Apple Silicon | `adrenaline-*-aarch64-apple-darwin.tar.gz` |
+| macOS Intel | `adrenaline-*-x86_64-apple-darwin.tar.gz` |
+| Windows x86_64 | `adrenaline-*-x86_64-pc-windows-msvc.zip` |
+
+```bash
+# macOS / Linux example
+tar -xzf adrenaline-0.1.0-aarch64-apple-darwin.tar.gz
+sudo mv adrenaline-0.1.0-aarch64-apple-darwin/adrenaline /usr/local/bin/
+adrenaline --version
+```
+
+Each release includes `SHA256SUMS.txt` for verification.
+
+### Build from source
+
 ```bash
 git clone https://github.com/ege-ayan/adrenaline.git
 cd adrenaline
@@ -45,6 +68,13 @@ cargo build --release
 # binary: ./target/release/adrenaline
 
 cargo install --path .
+```
+
+### Package a local release binary
+
+```bash
+make release
+# creates dist/adrenaline-<version>-<target>.tar.gz (or .zip on Windows)
 ```
 
 ## Commands
