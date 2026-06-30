@@ -1,11 +1,9 @@
 use std::collections::BTreeMap;
-use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
 use hdrhistogram::Histogram;
 use serde::{Deserialize, Serialize};
-use tokio::sync::Mutex;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RequestResult {
@@ -133,59 +131,80 @@ impl TestReport {
     }
 }
 
+/// Per-worker stats collector without locking. Workers merge into `Stats` at the end.
+#[derive(Debug)]
+pub struct LocalStats {
+    histogram: Histogram<u64>,
+    status_codes: BTreeMap<u16, usize>,
+    errors: BTreeMap<String, usize>,
+    successful: usize,
+    failed: usize,
+}
+
+impl LocalStats {
+    pub fn new() -> Result<Self> {
+        Ok(Self {
+            histogram: Histogram::<u64>::new(3).context("failed to create latency histogram")?,
+            status_codes: BTreeMap::new(),
+            errors: BTreeMap::new(),
+            successful: 0,
+            failed: 0,
+        })
+    }
+
+    pub fn record(&mut self, result: RequestResult) {
+        let micros = result.latency.as_micros() as u64;
+        self.histogram
+            .record(micros)
+            .expect("histogram record failed");
+
+        if let Some(status) = result.status {
+            *self.status_codes.entry(status).or_insert(0) += 1;
+
+            if is_successful_status(status) {
+                self.successful += 1;
+            } else {
+                self.failed += 1;
+            }
+        } else {
+            self.failed += 1;
+
+            if let Some(error) = result.error {
+                *self.errors.entry(error).or_insert(0) += 1;
+            }
+        }
+    }
+
+    pub fn merge(&mut self, other: LocalStats) -> Result<()> {
+        self.histogram
+            .add(other.histogram)
+            .context("failed to merge histograms")?;
+        self.successful += other.successful;
+        self.failed += other.failed;
+
+        for (code, count) in other.status_codes {
+            *self.status_codes.entry(code).or_insert(0) += count;
+        }
+        for (error, count) in other.errors {
+            *self.errors.entry(error).or_insert(0) += count;
+        }
+        Ok(())
+    }
+}
+
 pub struct Stats {
-    histogram: Arc<Mutex<Histogram<u64>>>,
-    status_codes: Arc<Mutex<BTreeMap<u16, usize>>>,
-    errors: Arc<Mutex<BTreeMap<String, usize>>>,
-    successful: Arc<Mutex<usize>>,
-    failed: Arc<Mutex<usize>>,
+    inner: LocalStats,
 }
 
 impl Stats {
     pub fn new() -> Result<Self> {
         Ok(Self {
-            histogram: Arc::new(Mutex::new(
-                Histogram::<u64>::new(3).context("failed to create latency histogram")?,
-            )),
-            status_codes: Arc::new(Mutex::new(BTreeMap::new())),
-            errors: Arc::new(Mutex::new(BTreeMap::new())),
-            successful: Arc::new(Mutex::new(0)),
-            failed: Arc::new(Mutex::new(0)),
+            inner: LocalStats::new()?,
         })
     }
 
-    pub fn clone_handles(&self) -> Self {
-        Self {
-            histogram: Arc::clone(&self.histogram),
-            status_codes: Arc::clone(&self.status_codes),
-            errors: Arc::clone(&self.errors),
-            successful: Arc::clone(&self.successful),
-            failed: Arc::clone(&self.failed),
-        }
-    }
-
-    pub async fn record(&self, result: RequestResult) {
-        let micros = result.latency.as_micros() as u64;
-        {
-            let mut hist = self.histogram.lock().await;
-            hist.record(micros).expect("histogram record failed");
-        }
-
-        if let Some(status) = result.status {
-            *self.status_codes.lock().await.entry(status).or_insert(0) += 1;
-
-            if is_successful_status(status) {
-                *self.successful.lock().await += 1;
-            } else {
-                *self.failed.lock().await += 1;
-            }
-        } else {
-            *self.failed.lock().await += 1;
-
-            if let Some(error) = result.error {
-                *self.errors.lock().await.entry(error).or_insert(0) += 1;
-            }
-        }
+    pub fn merge_local(&mut self, local: LocalStats) -> Result<()> {
+        self.inner.merge(local)
     }
 
     pub fn finalize(
@@ -197,33 +216,17 @@ impl Stats {
         completed: usize,
         metadata: BTreeMap<String, String>,
     ) -> Result<TestReport> {
-        let histogram = Arc::try_unwrap(self.histogram)
-            .map_err(|_| anyhow::anyhow!("histogram still in use"))?
-            .into_inner();
-        let status_codes = Arc::try_unwrap(self.status_codes)
-            .map_err(|_| anyhow::anyhow!("status codes still in use"))?
-            .into_inner();
-        let errors = Arc::try_unwrap(self.errors)
-            .map_err(|_| anyhow::anyhow!("errors still in use"))?
-            .into_inner();
-        let successful = Arc::try_unwrap(self.successful)
-            .map_err(|_| anyhow::anyhow!("successful counter still in use"))?
-            .into_inner();
-        let failed = Arc::try_unwrap(self.failed)
-            .map_err(|_| anyhow::anyhow!("failed counter still in use"))?
-            .into_inner();
-
         Ok(TestReport {
             command: command.to_string(),
             url: url.to_string(),
             method: method.to_string(),
             total_duration,
             completed,
-            successful,
-            failed,
-            histogram,
-            status_codes,
-            errors,
+            successful: self.inner.successful,
+            failed: self.inner.failed,
+            histogram: self.inner.histogram,
+            status_codes: self.inner.status_codes,
+            errors: self.inner.errors,
             metadata,
         })
     }
@@ -245,31 +248,66 @@ mod tests {
         assert!(!is_successful_status(500));
     }
 
-    #[tokio::test]
-    async fn stats_records_success_and_failure() {
-        let stats = Stats::new().unwrap();
+    #[test]
+    fn local_stats_records_success_and_failure() {
+        let mut stats = LocalStats::new().unwrap();
 
-        stats
-            .record(RequestResult {
-                latency: Duration::from_millis(10),
-                status: Some(200),
-                error: None,
-            })
-            .await;
-        stats
-            .record(RequestResult {
-                latency: Duration::from_millis(20),
-                status: Some(500),
-                error: None,
-            })
-            .await;
-        stats
-            .record(RequestResult {
-                latency: Duration::from_millis(30),
-                status: None,
-                error: Some("timeout".to_string()),
-            })
-            .await;
+        stats.record(RequestResult {
+            latency: Duration::from_millis(10),
+            status: Some(200),
+            error: None,
+        });
+        stats.record(RequestResult {
+            latency: Duration::from_millis(20),
+            status: Some(500),
+            error: None,
+        });
+        stats.record(RequestResult {
+            latency: Duration::from_millis(30),
+            status: None,
+            error: Some("timeout".to_string()),
+        });
+
+        assert_eq!(stats.successful, 1);
+        assert_eq!(stats.failed, 2);
+        assert_eq!(stats.status_codes.get(&200), Some(&1));
+        assert_eq!(stats.status_codes.get(&500), Some(&1));
+        assert_eq!(stats.errors.get("timeout"), Some(&1));
+    }
+
+    #[test]
+    fn merge_locals_combines_worker_stats() {
+        let mut worker_a = LocalStats::new().unwrap();
+        worker_a.record(RequestResult {
+            latency: Duration::from_millis(10),
+            status: Some(200),
+            error: None,
+        });
+
+        let mut worker_b = LocalStats::new().unwrap();
+        worker_b.record(RequestResult {
+            latency: Duration::from_millis(20),
+            status: Some(200),
+            error: None,
+        });
+
+        let mut combined = LocalStats::new().unwrap();
+        combined.merge(worker_a).unwrap();
+        combined.merge(worker_b).unwrap();
+
+        assert_eq!(combined.successful, 2);
+    }
+
+    #[test]
+    fn stats_finalize_from_merged_locals() {
+        let mut stats = Stats::new().unwrap();
+        let mut local = LocalStats::new().unwrap();
+        local.record(RequestResult {
+            latency: Duration::from_millis(10),
+            status: Some(200),
+            error: None,
+        });
+        stats.merge_local(local).unwrap();
 
         let report = stats
             .finalize(
@@ -277,58 +315,48 @@ mod tests {
                 "https://example.com",
                 "GET",
                 Duration::from_secs(1),
-                3,
+                1,
                 BTreeMap::new(),
             )
             .unwrap();
 
-        assert_eq!(report.completed, 3);
+        assert_eq!(report.completed, 1);
         assert_eq!(report.successful, 1);
-        assert_eq!(report.failed, 2);
-        assert_eq!(report.status_codes.get(&200), Some(&1));
-        assert_eq!(report.status_codes.get(&500), Some(&1));
-        assert_eq!(report.errors.get("timeout"), Some(&1));
     }
 
-    #[tokio::test]
-    async fn merge_combines_reports() {
-        let stats_a = Stats::new().unwrap();
-        stats_a
-            .record(RequestResult {
-                latency: Duration::from_millis(10),
-                status: Some(200),
-                error: None,
-            })
-            .await;
-        let report_a = stats_a
-            .finalize(
-                "hit",
-                "https://a.com",
-                "GET",
-                Duration::from_secs(1),
-                1,
-                BTreeMap::new(),
-            )
-            .unwrap();
+    #[test]
+    fn merge_combines_reports() {
+        let mut histogram_a = Histogram::<u64>::new(3).unwrap();
+        histogram_a.record(10_000).unwrap();
+        let report_a = TestReport {
+            command: "hit".to_string(),
+            url: "https://a.com".to_string(),
+            method: "GET".to_string(),
+            total_duration: Duration::from_secs(1),
+            completed: 1,
+            successful: 1,
+            failed: 0,
+            histogram: histogram_a,
+            status_codes: BTreeMap::new(),
+            errors: BTreeMap::new(),
+            metadata: BTreeMap::new(),
+        };
 
-        let stats_b = Stats::new().unwrap();
-        stats_b
-            .record(RequestResult {
-                latency: Duration::from_millis(20),
-                status: Some(200),
-                error: None,
-            })
-            .await;
-        let report_b = stats_b
-            .finalize(
-                "hit",
-                "https://a.com",
-                "GET",
-                Duration::from_secs(1),
-                1,
-                BTreeMap::new(),
-            )
-            .unwrap();
+        let mut histogram_b = Histogram::<u64>::new(3).unwrap();
+        histogram_b.record(20_000).unwrap();
+        let report_b = TestReport {
+            command: "hit".to_string(),
+            url: "https://a.com".to_string(),
+            method: "GET".to_string(),
+            total_duration: Duration::from_secs(1),
+            completed: 1,
+            successful: 1,
+            failed: 0,
+            histogram: histogram_b,
+            status_codes: BTreeMap::new(),
+            errors: BTreeMap::new(),
+            metadata: BTreeMap::new(),
+        };
 
         let merged = report_a.merge(report_b).unwrap();
         assert_eq!(merged.completed, 2);

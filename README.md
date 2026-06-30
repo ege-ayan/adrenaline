@@ -20,7 +20,7 @@ adrenaline scenario examples/scenario.yaml
 | **find-limit** | Step up concurrency until error rate exceeds threshold |
 | **compare** | Compare two baseline JSON reports for regressions |
 | **scenario** | Run multi-step YAML test plans |
-| **HTTP methods** | GET, POST, PUT, DELETE |
+| **HTTP methods** | GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS |
 | **Headers & body** | Custom headers and request body from file |
 | **JSON output** | `--json` for machine-readable results |
 | **HTML reports** | `--html report.html` |

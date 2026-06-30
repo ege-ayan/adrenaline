@@ -1,12 +1,12 @@
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
 use reqwest::Client;
-use tokio::sync::Semaphore;
 
 use crate::request::{RequestSpec, send_request};
-use crate::stats::Stats;
+use crate::stats::{LocalStats, Stats};
 
 #[derive(Debug, Clone)]
 pub struct LoadPhase {
@@ -24,28 +24,42 @@ pub fn validate_phase(phase: &LoadPhase) -> Result<()> {
     Ok(())
 }
 
+/// Runs a load phase using a fixed worker pool. At most `concurrency` tasks exist;
+/// workers pull work from a shared counter instead of spawning one task per request.
 pub async fn run_phase(client: &Client, spec: &RequestSpec, phase: &LoadPhase) -> Result<Stats> {
     validate_phase(phase)?;
 
-    let semaphore = Arc::new(Semaphore::new(phase.concurrency));
-    let stats = Stats::new()?;
+    let workers = phase.concurrency.min(phase.requests);
+    let total = phase.requests;
+    let next = Arc::new(AtomicUsize::new(0));
 
-    let mut handles = Vec::with_capacity(phase.requests);
-    for _ in 0..phase.requests {
+    let mut handles = Vec::with_capacity(workers);
+    for _ in 0..workers {
         let client = client.clone();
         let spec = spec.clone();
-        let semaphore = Arc::clone(&semaphore);
-        let stats = stats.clone_handles();
+        let next = Arc::clone(&next);
 
         handles.push(tokio::spawn(async move {
-            let _permit = semaphore.acquire().await.expect("semaphore closed");
-            let result = send_request(&client, &spec).await;
-            stats.record(result).await;
+            let mut local = LocalStats::new()?;
+
+            loop {
+                let id = next.fetch_add(1, Ordering::Relaxed);
+                if id >= total {
+                    break;
+                }
+
+                let result = send_request(&client, &spec).await;
+                local.record(result);
+            }
+
+            Ok::<LocalStats, anyhow::Error>(local)
         }));
     }
 
+    let mut stats = Stats::new()?;
     for handle in handles {
-        handle.await.context("request task panicked")?;
+        let local = handle.await.context("worker task panicked")??;
+        stats.merge_local(local)?;
     }
 
     Ok(stats)
@@ -102,6 +116,40 @@ mod tests {
 
         assert_eq!(report.completed, 20);
         assert_eq!(report.successful, 20);
+    }
+
+    #[tokio::test]
+    async fn worker_pool_does_not_spawn_per_request_tasks() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(200..=200)
+            .mount(&server)
+            .await;
+
+        let spec = RequestSpec {
+            url: server.uri(),
+            method: HttpMethod::Get,
+            headers: vec![],
+            body: None,
+            timeout_secs: 10,
+        };
+        let client = crate::request::build_client(10).await.unwrap();
+
+        let (stats, _) = execute_load(&client, &spec, 200, 10).await.unwrap();
+        let report = stats
+            .finalize(
+                "hit",
+                &spec.url,
+                "GET",
+                Duration::from_secs(1),
+                200,
+                Default::default(),
+            )
+            .unwrap();
+
+        assert_eq!(report.completed, 200);
+        assert_eq!(report.successful, 200);
     }
 
     #[test]

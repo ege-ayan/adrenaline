@@ -13,19 +13,29 @@ use crate::stats::RequestResult;
 pub enum HttpMethod {
     #[default]
     Get,
+    Head,
     Post,
     Put,
+    Patch,
     Delete,
+    Options,
 }
 
 impl HttpMethod {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Get => "GET",
+            Self::Head => "HEAD",
             Self::Post => "POST",
             Self::Put => "PUT",
+            Self::Patch => "PATCH",
             Self::Delete => "DELETE",
+            Self::Options => "OPTIONS",
         }
+    }
+
+    pub fn allows_body(self) -> bool {
+        matches!(self, Self::Post | Self::Put | Self::Patch)
     }
 }
 
@@ -42,7 +52,7 @@ impl RequestSpec {
     pub fn validate(&self) -> Result<()> {
         reqwest::Url::parse(&self.url).with_context(|| format!("invalid URL: {}", self.url))?;
 
-        if matches!(self.method, HttpMethod::Get | HttpMethod::Delete) && self.body.is_some() {
+        if !self.method.allows_body() && self.body.is_some() {
             bail!(
                 "body is not supported for {} requests",
                 self.method.as_str()
@@ -84,9 +94,12 @@ pub async fn send_request(client: &Client, spec: &RequestSpec) -> RequestResult 
 
     let mut builder = match spec.method {
         HttpMethod::Get => client.get(&spec.url),
+        HttpMethod::Head => client.head(&spec.url),
         HttpMethod::Post => client.post(&spec.url),
         HttpMethod::Put => client.put(&spec.url),
+        HttpMethod::Patch => client.patch(&spec.url),
         HttpMethod::Delete => client.delete(&spec.url),
+        HttpMethod::Options => client.request(reqwest::Method::OPTIONS, &spec.url),
     };
 
     for (key, value) in &spec.headers {
@@ -157,15 +170,27 @@ mod tests {
     }
 
     #[test]
-    fn validate_accepts_post_with_body() {
+    fn validate_accepts_patch_with_body() {
         let spec = RequestSpec {
             url: "https://example.com".to_string(),
-            method: HttpMethod::Post,
+            method: HttpMethod::Patch,
             headers: vec![],
             body: Some("{}".to_string()),
             timeout_secs: 10,
         };
         assert!(spec.validate().is_ok());
+    }
+
+    #[test]
+    fn validate_rejects_body_on_head() {
+        let spec = RequestSpec {
+            url: "https://example.com".to_string(),
+            method: HttpMethod::Head,
+            headers: vec![],
+            body: Some("{}".to_string()),
+            timeout_secs: 10,
+        };
+        assert!(spec.validate().is_err());
     }
 
     #[tokio::test]
@@ -192,5 +217,29 @@ mod tests {
 
         let result = send_request(&client, &spec).await;
         assert_eq!(result.error.as_deref(), Some("timeout"));
+    }
+
+    #[tokio::test]
+    async fn sends_head_request() {
+        use wiremock::matchers::method;
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        Mock::given(method("HEAD"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+
+        let client = build_client(10).await.unwrap();
+        let spec = RequestSpec {
+            url: server.uri(),
+            method: HttpMethod::Head,
+            headers: vec![],
+            body: None,
+            timeout_secs: 10,
+        };
+
+        let result = send_request(&client, &spec).await;
+        assert_eq!(result.status, Some(200));
     }
 }

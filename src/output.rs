@@ -146,9 +146,9 @@ pub fn render_html(report: &TestReport) -> String {
   <table>{error_rows}</table>
 </body>
 </html>"#,
-        command = report.command,
-        method = report.method,
-        url = report.url,
+        command = escape_html(&report.command),
+        method = escape_html(&report.method),
+        url = escape_html(&report.url),
         total_time = snap.total_duration_secs,
         rps = snap.requests_per_sec,
         completed = snap.completed,
@@ -164,6 +164,21 @@ pub fn render_html(report: &TestReport) -> String {
         status_rows = table_rows(&snap.status_codes),
         error_rows = table_rows_str(&snap.errors),
     )
+}
+
+pub fn escape_html(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    for ch in input.chars() {
+        match ch {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&#39;"),
+            _ => out.push(ch),
+        }
+    }
+    out
 }
 
 fn table_rows(codes: &BTreeMap<u16, usize>) -> String {
@@ -182,7 +197,7 @@ fn table_rows_str(items: &BTreeMap<String, usize>) -> String {
     }
     items
         .iter()
-        .map(|(key, count)| format!("<tr><td>{key}</td><td>{count}</td></tr>"))
+        .map(|(key, count)| format!("<tr><td>{}</td><td>{count}</td></tr>", escape_html(key)))
         .collect()
 }
 
@@ -289,6 +304,28 @@ mod tests {
         assert_eq!(format_ms(102.4), "102");
         assert_eq!(format_ms(68.9), "68.9");
         assert_eq!(format_ms(5.12), "5.12");
+    }
+
+    #[test]
+    fn render_html_escapes_untrusted_content() {
+        let mut report = sample_report();
+        report.url = "https://evil.example/?q=<script>alert(1)</script>".to_string();
+        report
+            .errors
+            .insert("<img onerror=alert(1)>".to_string(), 1);
+
+        let html = render_html(&report);
+        assert!(!html.contains("<script>"));
+        assert!(html.contains("&lt;script&gt;"));
+        assert!(html.contains("&lt;img onerror=alert(1)&gt;"));
+    }
+
+    #[test]
+    fn escape_html_encodes_special_chars() {
+        assert_eq!(
+            escape_html(r#"<a href="x">&'"#),
+            "&lt;a href=&quot;x&quot;&gt;&amp;&#39;"
+        );
     }
 
     #[tokio::test]
