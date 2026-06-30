@@ -52,8 +52,8 @@ Download the archive for your platform from [GitHub Releases](https://github.com
 
 ```bash
 # macOS / Linux example
-tar -xzf adrenaline-0.1.0-aarch64-apple-darwin.tar.gz
-sudo mv adrenaline-0.1.0-aarch64-apple-darwin/adrenaline /usr/local/bin/
+tar -xzf adrenaline-0.1.1-aarch64-apple-darwin.tar.gz
+sudo mv adrenaline-0.1.1-aarch64-apple-darwin/adrenaline /usr/local/bin/
 adrenaline --version
 ```
 
