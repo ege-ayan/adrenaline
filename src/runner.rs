@@ -5,6 +5,7 @@ use std::time::Instant;
 use anyhow::{Context, Result, bail};
 use reqwest::Client;
 
+use crate::rate_limit::RateLimiter;
 use crate::request::{RequestSpec, send_request};
 use crate::stats::{LocalStats, Stats};
 
@@ -12,6 +13,7 @@ use crate::stats::{LocalStats, Stats};
 pub struct LoadPhase {
     pub requests: usize,
     pub concurrency: usize,
+    pub rps: Option<u64>,
 }
 
 pub fn validate_phase(phase: &LoadPhase) -> Result<()> {
@@ -24,20 +26,23 @@ pub fn validate_phase(phase: &LoadPhase) -> Result<()> {
     Ok(())
 }
 
-/// Runs a load phase using a fixed worker pool. At most `concurrency` tasks exist;
-/// workers pull work from a shared counter instead of spawning one task per request.
 pub async fn run_phase(client: &Client, spec: &RequestSpec, phase: &LoadPhase) -> Result<Stats> {
     validate_phase(phase)?;
 
     let workers = phase.concurrency.min(phase.requests);
     let total = phase.requests;
     let next = Arc::new(AtomicUsize::new(0));
+    let per_worker_rps = phase.rps.map(|rps| {
+        let share = rps as f64 / workers as f64;
+        if share < 1.0 { 1.0 } else { share }
+    });
 
     let mut handles = Vec::with_capacity(workers);
     for _ in 0..workers {
         let client = client.clone();
         let spec = spec.clone();
         let next = Arc::clone(&next);
+        let rate_limiter = per_worker_rps.map(|rps| RateLimiter::new(rps.ceil() as u64));
 
         handles.push(tokio::spawn(async move {
             let mut local = LocalStats::new()?;
@@ -46,6 +51,10 @@ pub async fn run_phase(client: &Client, spec: &RequestSpec, phase: &LoadPhase) -
                 let id = next.fetch_add(1, Ordering::Relaxed);
                 if id >= total {
                     break;
+                }
+
+                if let Some(limiter) = &rate_limiter {
+                    limiter.acquire().await;
                 }
 
                 let result = send_request(&client, &spec).await;
@@ -70,10 +79,12 @@ pub async fn execute_load(
     spec: &RequestSpec,
     requests: usize,
     concurrency: usize,
+    rps: Option<u64>,
 ) -> Result<(Stats, std::time::Duration)> {
     let phase = LoadPhase {
         requests,
         concurrency,
+        rps,
     };
     let start = Instant::now();
     let stats = run_phase(client, spec, &phase).await?;
@@ -109,7 +120,7 @@ mod tests {
         };
         let client = crate::request::build_client(10).await.unwrap();
 
-        let (stats, duration) = execute_load(&client, &spec, 20, 5).await.unwrap();
+        let (stats, duration) = execute_load(&client, &spec, 20, 5, None).await.unwrap();
         let report = stats
             .finalize("hit", &spec.url, "GET", duration, 20, Default::default())
             .unwrap();
@@ -136,7 +147,7 @@ mod tests {
         };
         let client = crate::request::build_client(10).await.unwrap();
 
-        let (stats, _) = execute_load(&client, &spec, 200, 10).await.unwrap();
+        let (stats, _) = execute_load(&client, &spec, 200, 10, None).await.unwrap();
         let report = stats
             .finalize(
                 "hit",
@@ -158,6 +169,7 @@ mod tests {
             validate_phase(&LoadPhase {
                 requests: 0,
                 concurrency: 1,
+                rps: None,
             })
             .is_err()
         );

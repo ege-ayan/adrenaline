@@ -5,6 +5,7 @@ pub mod find_limit;
 pub mod hit;
 pub mod output;
 pub mod ramp;
+pub mod rate_limit;
 pub mod report;
 pub mod request;
 pub mod runner;

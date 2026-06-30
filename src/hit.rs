@@ -14,13 +14,19 @@ pub async fn run(args: HitArgs) -> Result<ExitCode> {
     let spec = request_spec_from_args(&args.request).await?;
     let client = build_client(spec.timeout_secs).await?;
 
-    let (stats, duration) = execute_load(&client, &spec, args.requests, args.concurrency).await?;
+    let (stats, duration) =
+        execute_load(&client, &spec, args.requests, args.concurrency, args.rps).await?;
 
-    let metadata = metadata_map(&[
+    let mut metadata_pairs = vec![
         ("requests", args.requests.to_string()),
         ("concurrency", args.concurrency.to_string()),
         ("timeout", format!("{}s", args.request.timeout)),
-    ]);
+    ];
+    if let Some(rps) = args.rps {
+        metadata_pairs.push(("rps", rps.to_string()));
+    }
+
+    let metadata = metadata_map(&metadata_pairs);
 
     let report = stats.finalize(
         "hit",
@@ -64,6 +70,7 @@ mod tests {
             },
             requests: 10,
             concurrency: 2,
+            rps: None,
             output: OutputArgs {
                 json: false,
                 html: None,
@@ -99,6 +106,7 @@ mod tests {
             },
             requests: 5,
             concurrency: 2,
+            rps: None,
             output: OutputArgs {
                 json: true,
                 html: None,
@@ -132,6 +140,7 @@ mod tests {
             },
             requests: 3,
             concurrency: 1,
+            rps: None,
             output: OutputArgs {
                 json: false,
                 html: Some(html.clone()),

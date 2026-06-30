@@ -24,7 +24,7 @@ pub async fn run(args: FindLimitArgs) -> Result<ExitCode> {
     let mut concurrency = args.start_concurrency;
     while concurrency <= args.max_concurrency {
         let (stats, duration) =
-            execute_load(&client, &spec, args.requests_per_step, concurrency).await?;
+            execute_load(&client, &spec, args.requests_per_step, concurrency, None).await?;
 
         let report = stats.finalize(
             "find-limit",

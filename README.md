@@ -212,6 +212,7 @@ adrenaline hit https://api.example.com/health \
 |------|---------|-------------|
 | `-n, --requests` | 1000 | Total requests |
 | `-c, --concurrency` | 50 | Max in-flight requests |
+| `--rps` | — | Cap request rate (requests per second) |
 | `--method` | GET | HTTP method |
 | `--header` | — | Repeatable `Key: Value` header |
 | `--body` | — | Request body file (POST/PUT) |
@@ -388,6 +389,19 @@ cargo run -- hit https://example.com -n 100 -c 10
 
 `make test` ends with a summary like `Total: 41 tests — 41 passed, 0 ignored`.
 Plain `cargo test` runs the same tests but prints per-crate blocks without a grand total.
+
+### Benchmarks (vs Locust)
+
+Compare Adrenaline against Locust locally (requires Docker + Python 3):
+
+```bash
+make bench-setup    # once: nginx container + locust venv
+make bench          # max throughput
+make bench-rps      # fixed RPS / latency overhead
+make bench-clean    # remove results and stop container
+```
+
+See [bench/README.md](bench/README.md) for methodology and sample numbers.
 
 ### Test coverage
 

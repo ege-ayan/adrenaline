@@ -34,7 +34,8 @@ pub async fn run(args: RampArgs) -> Result<ExitCode> {
             args.steps,
         );
 
-        let (stats, duration) = execute_load(&client, &spec, step_requests, concurrency).await?;
+        let (stats, duration) =
+            execute_load(&client, &spec, step_requests, concurrency, None).await?;
 
         let report = stats.finalize(
             "ramp",

@@ -71,6 +71,9 @@ pub struct HitArgs {
     #[arg(short = 'c', long = "concurrency", default_value_t = 50)]
     pub concurrency: usize,
 
+    #[arg(long = "rps", help = "Cap request rate (requests per second)")]
+    pub rps: Option<u64>,
+
     #[command(flatten)]
     pub output: OutputArgs,
 }
@@ -179,6 +182,9 @@ pub fn validate_positive(value: usize, name: &str) -> Result<()> {
 pub fn validate_hit_args(args: &HitArgs) -> Result<()> {
     validate_positive(args.requests, "requests")?;
     validate_positive(args.concurrency, "concurrency")?;
+    if let Some(rps) = args.rps {
+        validate_positive(rps as usize, "rps")?;
+    }
     Ok(())
 }
 
@@ -225,6 +231,7 @@ mod tests {
             },
             requests: 0,
             concurrency: 10,
+            rps: None,
             output: OutputArgs {
                 json: false,
                 html: None,
@@ -248,6 +255,7 @@ mod tests {
             },
             requests: 10,
             concurrency: 0,
+            rps: None,
             output: OutputArgs {
                 json: false,
                 html: None,

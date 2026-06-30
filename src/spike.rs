@@ -19,6 +19,7 @@ pub async fn run(args: SpikeArgs) -> Result<ExitCode> {
         &spec,
         args.baseline_requests,
         args.baseline_concurrency,
+        None,
     )
     .await?;
 
@@ -51,8 +52,14 @@ pub async fn run(args: SpikeArgs) -> Result<ExitCode> {
         .collect(),
     )?;
 
-    let (spike_stats, spike_duration) =
-        execute_load(&client, &spec, args.spike_requests, args.spike_concurrency).await?;
+    let (spike_stats, spike_duration) = execute_load(
+        &client,
+        &spec,
+        args.spike_requests,
+        args.spike_concurrency,
+        None,
+    )
+    .await?;
 
     let spike_report = spike_stats.finalize(
         "spike",

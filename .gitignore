@@ -65,8 +65,14 @@ coverage/
 lcov.info
 tarpaulin-report.html
 
-# Benchmark output
+# Benchmark output (generated locally; see `make bench`)
 criterion/
+bench/.venv/
+bench/__pycache__/
+bench/**/__pycache__/
+bench/**/*.pyc
+bench/bench-results/
+bench/bench-results-rps/
 
 # Release artifacts copied locally
 /dist/

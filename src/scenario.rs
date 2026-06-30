@@ -189,6 +189,7 @@ pub async fn run(args: ScenarioArgs) -> Result<ExitCode> {
                     ),
                     requests: step_args.requests,
                     concurrency: step_args.concurrency,
+                    rps: None,
                     output: output.clone(),
                 };
                 hit::run(hit_args).await?;
