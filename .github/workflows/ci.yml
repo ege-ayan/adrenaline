@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Run tests
+        run: make test
+
+      - name: Build release binary
+        run: cargo build --release
+
+  load-test-example:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run smoke load test
+        run: |
+          cargo run --release -- hit https://example.com -n 20 -c 5 --json
+
+      - name: Save baseline artifact
+        run: |
+          cargo run --release -- hit https://example.com -n 20 -c 5 --save-baseline baseline.json
+          test -f baseline.json
+
+      - name: Upload baseline
+        uses: actions/upload-artifact@v4
+        with:
+          name: adrenaline-baseline
+          path: baseline.json

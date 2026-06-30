@@ -1,0 +1,11 @@
+{
+  "recommendations": [
+    "rust-lang.rust-analyzer",
+    "tamasfe.even-better-toml",
+    "redhat.vscode-yaml",
+    "EditorConfig.EditorConfig"
+  ],
+  "unwantedRecommendations": [
+    "rust-lang.rust"
+  ]
+}

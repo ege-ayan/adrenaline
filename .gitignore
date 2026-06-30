@@ -1,0 +1,74 @@
+# Rust / Cargo
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo.lock is committed for binaries (applications), not libraries.
+# Adrenaline is a CLI binary — keep Cargo.lock tracked.
+
+# Backup files created by rust-analyzer / IDE
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE / editors
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.code-workspace
+*.sublime-project
+*.sublime-workspace
+
+# Cursor
+.cursor/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+secrets/
+
+# Local test artifacts
+*.log
+/tmp/
+/adrenaline-report/
+/reports/
+
+# Coverage / profiling
+*.profraw
+*.profdata
+coverage/
+lcov.info
+tarpaulin-report.html
+
+# Benchmark output
+criterion/
+
+# Release artifacts copied locally
+/dist/
+*.tar.gz
+*.zip

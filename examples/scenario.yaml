@@ -1,0 +1,33 @@
+name: api smoke test
+defaults:
+  timeout: 10
+  method: GET
+  headers:
+    - "Accept: application/json"
+steps:
+  - type: hit
+    url: https://example.com
+    requests: 50
+    concurrency: 5
+
+  - type: ramp
+    url: https://example.com
+    requests: 200
+    start_concurrency: 5
+    end_concurrency: 50
+    steps: 5
+
+  - type: spike
+    url: https://example.com
+    baseline_requests: 50
+    baseline_concurrency: 5
+    spike_requests: 200
+    spike_concurrency: 100
+
+  - type: find-limit
+    url: https://example.com
+    requests_per_step: 50
+    start_concurrency: 10
+    max_concurrency: 200
+    step: 20
+    max_error_rate: 5.0
