@@ -29,7 +29,9 @@ adrenaline scenario examples/scenario.yaml
 
 ## Requirements
 
-- [Rust](https://www.rust-lang.org/tools/install) 1.85+ (2024 edition)
+**Pre-built release:** no extra dependencies — just download and run.
+
+**Build from source:** [Rust](https://www.rust-lang.org/tools/install) 1.85+ (2024 edition)
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -40,24 +42,114 @@ source "$HOME/.cargo/env"
 
 ### Pre-built binary (GitHub Releases)
 
-Download the archive for your platform from [GitHub Releases](https://github.com/ege-ayan/adrenaline/releases):
+1. Open [GitHub Releases](https://github.com/ege-ayan/adrenaline/releases/latest)
+2. Download the archive for your platform (see table below)
+3. Extract it and put `adrenaline` on your `PATH` (platform steps below)
+4. Run `adrenaline --version` to confirm
 
-| Platform | Asset |
-|----------|-------|
+| Platform | Download |
+|----------|----------|
 | Linux x86_64 | `adrenaline-*-linux-x86_64.tar.gz` |
 | Linux ARM64 | `adrenaline-*-linux-aarch64.tar.gz` |
 | macOS Apple Silicon | `adrenaline-*-macos-aarch64.tar.gz` |
 | macOS Intel | `adrenaline-*-macos-x86_64.tar.gz` |
 | Windows x86_64 | `adrenaline-*-windows-x86_64.zip` |
 
+Replace `*` with the release version (e.g. `0.1.2`).
+
+#### macOS (Apple Silicon or Intel)
+
 ```bash
-# macOS / Linux example
+cd ~/Downloads
+
+# pick the file you downloaded, e.g.:
 tar -xzf adrenaline-0.1.2-macos-aarch64.tar.gz
-sudo mv adrenaline-0.1.2-macos-aarch64/adrenaline /usr/local/bin/
+
+# install globally (requires password)
+sudo install -m 755 adrenaline-0.1.2-macos-aarch64/adrenaline /usr/local/bin/adrenaline
+
+# or install for your user only (no sudo)
+mkdir -p ~/.local/bin
+install -m 755 adrenaline-0.1.2-macos-aarch64/adrenaline ~/.local/bin/adrenaline
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+
 adrenaline --version
+adrenaline hit https://example.com -n 10 -c 2
 ```
 
-Each release includes `SHA256SUMS.txt` for verification.
+If macOS blocks the binary (“cannot be opened”), remove the quarantine flag once:
+
+```bash
+xattr -d com.apple.quarantine "$(which adrenaline)"
+```
+
+#### Linux
+
+```bash
+cd ~/Downloads
+
+# example: linux x86_64
+tar -xzf adrenaline-0.1.2-linux-x86_64.tar.gz
+
+sudo install -m 755 adrenaline-0.1.2-linux-x86_64/adrenaline /usr/local/bin/adrenaline
+
+# user-only install (no sudo)
+mkdir -p ~/.local/bin
+install -m 755 adrenaline-0.1.2-linux-x86_64/adrenaline ~/.local/bin/adrenaline
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+adrenaline --version
+adrenaline hit https://example.com -n 10 -c 2
+```
+
+#### Windows (PowerShell)
+
+```powershell
+cd $env:USERPROFILE\Downloads
+
+# example file name — adjust version if needed
+Expand-Archive adrenaline-0.1.2-windows-x86_64.zip -DestinationPath .
+
+# add to user PATH for this session
+$bin = "$env:USERPROFILE\Downloads\adrenaline-0.1.2-windows-x86_64"
+$env:Path = "$bin;$env:Path"
+
+# persist PATH (open a new terminal after)
+[Environment]::SetEnvironmentVariable(
+  "Path",
+  [Environment]::GetEnvironmentVariable("Path", "User") + ";$bin",
+  "User"
+)
+
+adrenaline --version
+adrenaline hit https://example.com -n 10 -c 2
+```
+
+#### Verify download (optional)
+
+Each release includes `SHA256SUMS.txt`. On macOS/Linux:
+
+```bash
+shasum -a 256 -c SHA256SUMS.txt
+```
+
+On Windows (PowerShell), compare the hash manually:
+
+```powershell
+Get-FileHash adrenaline-0.1.2-windows-x86_64.zip -Algorithm SHA256
+# match the line for your file in SHA256SUMS.txt
+```
+
+You should see `OK` (Unix) or matching hashes (Windows) for the archive you downloaded.
+
+#### First run
+
+```bash
+adrenaline --help
+adrenaline hit https://example.com -n 100 -c 10
+```
 
 ### Build from source
 
@@ -65,10 +157,32 @@ Each release includes `SHA256SUMS.txt` for verification.
 git clone https://github.com/ege-ayan/adrenaline.git
 cd adrenaline
 cargo build --release
-# binary: ./target/release/adrenaline
-
-cargo install --path .
+# run without installing: ./target/release/adrenaline hit ...
 ```
+
+### Install to PATH
+
+```bash
+make install
+```
+
+This installs `adrenaline` to `~/.cargo/bin/`. If the command is not found, add Rust’s bin dir to your shell:
+
+```bash
+echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+adrenaline --version
+```
+
+**Local dev only** (no global install):
+
+```bash
+make build
+source scripts/env.sh   # adds ./target/release to PATH for this shell
+adrenaline --version
+```
+
+If you use [direnv](https://direnv.net), `.envrc` does the same when you `cd` into the repo.
 
 ### Package a local release binary
 
